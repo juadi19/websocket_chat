@@ -17,8 +17,9 @@ passport.use(
     },
     async function (req, name, password, done) {
       if (!req.body.profilePictureUrl)
-        return done("Nombre de usuario requerido");
-      if (!req.body.color) return done("Nombre de usuario requerido");
+        req.body.profilePictureUrl =
+          "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541";
+      if (!req.body.color) return done("Color requerido");
 
       try {
         const user = await queryDatabase(
