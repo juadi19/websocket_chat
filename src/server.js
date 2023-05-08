@@ -8,6 +8,7 @@ const queryDatabase = require("./helpers/queryDB");
 const passport = require("passport");
 const connectDatabase = require("../connectDatabase");
 const jwt = require("jsonwebtoken");
+const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
@@ -87,6 +88,11 @@ async function startServer() {
 
   app.use(bodyParser.json()); // for parsing application/json
   app.use(express.static("public"));
+  app.use(
+    cors({
+      origin: false,
+    })
+  );
 
   app.get("/users", async (req, res) => {
     const users = await queryDatabase(
