@@ -90,7 +90,7 @@ async function startServer() {
   app.use(express.static("public"));
   app.use(
     cors({
-      origin: false,
+      origin: "*",
     })
   );
 
