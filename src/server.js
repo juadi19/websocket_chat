@@ -53,36 +53,101 @@ async function startServer() {
       socket.handshake.query.roomName
     );
     const token = socket.handshake.auth?.token;
-    socket.join(socket.handshake.query.roomName);
-    userSockets[socket.id] = { socket };
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
       if (err) {
         console.log(err);
+        socket.disconnect();
       } else {
-        userSockets[socket.id].user = decoded;
+        const user = decoded;
+        socket.join(`userId#${user.id}`);
+        if (userSockets[user.id]) {
+          userSockets[user.id].sockets.push(socket);
+        } else {
+          userSockets[user.id] = { sockets: [], user };
+          userSockets[user.id].sockets.push(socket);
+          console.log(
+            `Un ${user.name} tiene ${
+              userSockets[user.id].sockets.length
+            } socket`
+          );
+          console.log(Object.keys(userSockets).length);
+        }
       }
     });
     //socket.disconnect();
 
     socket.on("disconnect", () => {
-      console.log("Un usuario se desconectó:", socket.id);
+      const token = socket.handshake.auth?.token;
+      //socket.join(socket.handshake.query.roomName);
+
+      jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+          console.log(err);
+          socket.disconnect();
+        } else {
+          const user = decoded;
+          if (userSockets[user.id]) {
+            userSockets[user.id].sockets = userSockets[user.id].sockets.filter(
+              (currentSocket) => socket.id != currentSocket.id
+            );
+            if (userSockets[user.id].sockets.length == 0) {
+              delete userSockets[user.id];
+            }
+          }
+        }
+      });
+      socket.disconnect();
     });
-    socket.on("new-message", (socketId, message) => {
-      const uSocket = userSockets[socketId].socket;
-      const sentBy = userSockets[socketId].user;
-      console.log(message);
-      const room = uSocket.handshake.query.roomName;
+
+    socket.on("new-message", async (socketId, { content, toUserId }) => {
+      let toUser, fromUser;
+      if (toUserId !== "general") {
+        [toUser] = await queryDatabase(
+          `SELECT * FROM users WHERE id='${toUserId}'`,
+          connection
+        );
+
+        console.log(toUser);
+
+        if (!toUser) {
+          uSocket.emit("error", "Usuario no encontrado");
+          return;
+        }
+      }
+      jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+          console.log(err);
+          socket.disconnect();
+        } else {
+          fromUser = decoded;
+        }
+      });
+
+      content = content.replace(/[']/g, '"');
       const messageToSend = {
-        content: message,
-        sentBy,
+        content,
+        sentBy: fromUser,
         sentAt: new Date(),
       };
 
-      io.to(uSocket.handshake.query.roomName).emit(
-        "receive-message",
-        messageToSend
-      );
+      if (toUserId !== "general") {
+        const savedMessage = await queryDatabase(
+          `INSERT INTO messages (content, fromUser, toUser) VALUES ('${content}', ${fromUser.id}, ${toUser.id})`,
+          connection
+        );
+      } else {
+        const savedMessage = await queryDatabase(
+          `INSERT INTO messages (content, fromUser, toUser) VALUES ('${content}', ${fromUser.id}, NULL)`,
+          connection
+        );
+      }
+
+      if (toUser)
+        io.to(`userId#${toUser.id}`)
+          .to(`userId#${fromUser.id}`)
+          .emit("receive-message", messageToSend);
+      else io.emit("receive-message", messageToSend);
     });
   });
 
@@ -102,10 +167,28 @@ async function startServer() {
     res.send(users);
   });
 
+  app.get("/users", async (req, res) => {
+    const users = await queryDatabase("SELECT * FROM users", connection);
+    res.send(users);
+  });
+
   app.get("/messages", async (req, res) => {
     const messages = await queryDatabase("SELECT * FROM messages", connection);
     res.send(messages);
   });
+
+  app.get(
+    "/users/:id/messages",
+    passport.authenticate("signup", { session: false }),
+    async (req, res) => {
+      const user = req.user;
+      const userMessage = await queryDatabase(
+        `SELECT * FROM messages WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUserId=${req.params.id} AND toUser=${user.id})`,
+        connection
+      );
+      res.send(userMessage);
+    }
+  );
 
   app.post(
     "/signup",
