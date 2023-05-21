@@ -57,7 +57,7 @@ async function startServer() {
 
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
-          console.log(err);
+          socket.emit("invalid-token");
           socket.disconnect();
         } else {
           const user = decoded;
@@ -84,7 +84,7 @@ async function startServer() {
 
         jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
           if (err) {
-            console.log(err);
+            socket.emit("invalid-token");
             socket.disconnect();
           } else {
             const user = decoded;
@@ -103,7 +103,7 @@ async function startServer() {
         socket.disconnect();
       });
 
-      socket.on("new-message", async (socketId, { content, toUserId }) => {
+      socket.on("new-message", async ({ content, toUserId }) => {
         let toUser, fromUser;
         if (toUserId !== "general") {
           [toUser] = await queryDatabase(
@@ -111,16 +111,14 @@ async function startServer() {
             connection
           );
 
-          console.log(toUser);
-
           if (!toUser) {
-            uSocket.emit("error", "Usuario no encontrado");
+            socket.emit("error", "Usuario no encontrado");
             return;
           }
         }
         jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
           if (err) {
-            console.log(err);
+            socket.emit("invalid-token");
             socket.disconnect();
           } else {
             fromUser = decoded;
@@ -135,22 +133,21 @@ async function startServer() {
         };
 
         if (toUserId !== "general") {
-          const savedMessage = await queryDatabase(
+          await queryDatabase(
             `INSERT INTO messages (content, fromUser, toUser) VALUES ('${content}', ${fromUser.id}, ${toUser.id})`,
             connection
           );
         } else {
-          const savedMessage = await queryDatabase(
+          await queryDatabase(
             `INSERT INTO messages (content, fromUser, toUser) VALUES ('${content}', ${fromUser.id}, NULL)`,
             connection
           );
         }
-
         if (toUser)
           io.to(`userId#${toUser.id}`)
             .to(`userId#${fromUser.id}`)
             .emit("receive-message", messageToSend);
-        else io.emit("receive-message", messageToSend);
+        else io.emit("general-message", messageToSend);
       });
     });
 
