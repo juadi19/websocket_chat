@@ -208,6 +208,14 @@ async function startServer() {
       }
     );
 
+    app.get(
+      "/validate",
+      passport.authenticate("jwt", { session: false }),
+      async (req, res) => {
+        res.send(req.user);
+      }
+    );
+
     server.listen(process.env.PORT, () => {
       console.log("Server running at port", process.env.PORT);
     });

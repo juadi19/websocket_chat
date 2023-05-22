@@ -86,7 +86,7 @@ passport.use(
       try {
         console.log(token);
         const [user] = await queryDatabase(
-          `SELECT id, name, profilePictureUrl, color, password FROM users WHERE users.name="${token.name}"`,
+          `SELECT id, name, profilePictureUrl, color FROM users WHERE users.name="${token.name}"`,
           connection
         );
         if (!user)
