@@ -50,8 +50,7 @@ async function startServer() {
 
     io.on("connection", (socket) => {
       console.log(
-        "Un usuario se conectó a la sala:",
-        socket.handshake.query.roomName
+        "Un usuario se conectó",
       );
       const token = socket.handshake.auth?.token;
 
@@ -62,25 +61,26 @@ async function startServer() {
         } else {
           const user = decoded;
           socket.join(`userId#${user.id}`);
+          
           if (userSockets[user.id]) {
             userSockets[user.id].sockets.push(socket);
           } else {
             userSockets[user.id] = { sockets: [], user };
             userSockets[user.id].sockets.push(socket);
-            console.log(
-              `Un ${user.name} tiene ${
+          }
+          
+          console.log(
+              `${user.name} tiene ${
                 userSockets[user.id].sockets.length
               } socket`
             );
-            console.log(Object.keys(userSockets).length);
-          }
+          console.log(Object.keys(userSockets).length);
         }
       });
       //socket.disconnect();
 
       socket.on("disconnect", () => {
         const token = socket.handshake.auth?.token;
-        //socket.join(socket.handshake.query.roomName);
 
         jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
           if (err) {
