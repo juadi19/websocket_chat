@@ -28,7 +28,6 @@ passport.use(
           }', '${req.body.color}', '${bcrypt.hashSync(password, 10)}');`,
           connection
         );
-        console.log(user);
         return done(null, { name });
       } catch (error) {
         //Duplicado
@@ -84,7 +83,6 @@ passport.use(
     },
     async (token, done) => {
       try {
-        console.log(token);
         const [user] = await queryDatabase(
           `SELECT id, name, profilePictureUrl, color FROM users WHERE users.name="${token.name}"`,
           connection

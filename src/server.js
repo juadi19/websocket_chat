@@ -104,6 +104,11 @@ async function startServer() {
 
       socket.on("new-message", async ({ content, toUserId }) => {
         let toUser, fromUser;
+        // List of special characters used in MySQL that can cause problems
+        const specialCharacters = /[\\`'"_%]/g;
+
+        // Replace special characters with escaped versions
+        content = content.replace(specialCharacters, "\\$&");
         if (toUserId !== "general") {
           [toUser] = await queryDatabase(
             `SELECT * FROM users WHERE id='${toUserId}'`,
@@ -142,7 +147,6 @@ async function startServer() {
             connection
           );
         }
-        console.log("emit");
         if (toUser)
           io.to(`userId#${toUser.id}`)
             .to(`userId#${fromUser.id}`)
@@ -167,7 +171,6 @@ async function startServer() {
 
       for (const userSocket of Object.values(userSockets)) {
         users.online.push(userSocket.user);
-        console.log(userSocket);
       }
 
       res.send(users);
@@ -180,13 +183,43 @@ async function startServer() {
         if (req.params.id !== "general") {
           const user = req.user;
           const userMessage = await queryDatabase(
-            `SELECT * FROM messages WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUser=${req.params.id} AND toUser=${user.id})`,
+            `SELECT *
+            FROM (
+              SELECT
+                messages.id,
+                messages.content,
+                messages.sentAt,
+                JSON_OBJECT('id', fromUser.id, 'name', fromUser.name, 'profilePictureUrl', fromUser.profilePictureUrl, 'color', fromUser.color) AS fromUser,
+                IF(messages.toUser IS NULL, NULL, JSON_OBJECT('id', toUser.id, 'name', toUser.name, 'profilePictureUrl', toUser.profilePictureUrl, 'color', toUser.color)) AS toUser
+              FROM messages
+              INNER JOIN users AS fromUser ON fromUser.id = messages.fromUser
+              LEFT JOIN users AS toUser ON toUser.id = messages.toUser
+              WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUser=${req.params.id} AND toUser=${user.id})
+              ORDER BY messages.id DESC
+              LIMIT 10
+            ) AS subquery
+            ORDER BY subquery.id ASC;`,
             connection
           );
           res.send(userMessage);
         } else {
           const userMessage = await queryDatabase(
-            `SELECT * FROM messages WHERE toUser IS NULL ORDER BY id DESC LIMIT 10`,
+            `SELECT *
+            FROM (
+              SELECT
+                messages.id,
+                messages.content,
+                messages.sentAt,
+                JSON_OBJECT('id', fromUser.id, 'name', fromUser.name, 'profilePictureUrl', fromUser.profilePictureUrl, 'color', fromUser.color) AS fromUser,
+                IF(messages.toUser IS NULL, NULL, JSON_OBJECT('id', toUser.id, 'name', toUser.name, 'profilePictureUrl', toUser.profilePictureUrl, 'color', toUser.color)) AS toUser
+              FROM messages
+              INNER JOIN users AS fromUser ON fromUser.id = messages.fromUser
+              LEFT JOIN users AS toUser ON toUser.id = messages.toUser
+              WHERE messages.toUser IS NULL
+              ORDER BY messages.id DESC
+              LIMIT 10
+            ) AS subquery
+            ORDER BY subquery.id ASC;`,
             connection
           );
           res.send(userMessage);
@@ -206,7 +239,6 @@ async function startServer() {
       "/login",
       passport.authenticate("login", { session: false }),
       (req, res, next) => {
-        console.log(process.env.JWT_SECRET);
         const token = jwt.sign(req.user, process.env.JWT_SECRET);
         res.send({ token });
       }
