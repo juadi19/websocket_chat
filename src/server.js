@@ -64,8 +64,14 @@ async function startServer() {
             userSockets[user.id].sockets.push(socket);
           } else {
             userSockets[user.id] = { sockets: [], user };
+            io.emit("online-user", user);
             userSockets[user.id].sockets.push(socket);
           }
+
+          console.log(
+            `${user.name} tiene ${userSockets[user.id].sockets.length} socket`
+          );
+          console.log(Object.keys(userSockets).length);
         }
       });
       //socket.disconnect();
@@ -87,6 +93,7 @@ async function startServer() {
               );
               if (userSockets[user.id].sockets.length == 0) {
                 delete userSockets[user.id];
+                io.emit("offline-user", user);
               }
             }
           }
@@ -153,36 +160,37 @@ async function startServer() {
     );
 
     app.get("/users", async (req, res) => {
-      const users = await queryDatabase(
-        "SELECT id, name, profilePictureUrl, color FROM users",
-        connection
-      );
-      res.send(users);
-    });
+      const users = {
+        online: [],
+        offline: [],
+      };
 
-    app.get("/users", async (req, res) => {
-      const users = await queryDatabase("SELECT * FROM users", connection);
-      res.send(users);
-    });
+      for (const userSocket of Object.values(userSockets)) {
+        users.online.push(userSocket.user);
+        console.log(userSocket);
+      }
 
-    app.get("/messages", async (req, res) => {
-      const messages = await queryDatabase(
-        "SELECT * FROM messages",
-        connection
-      );
-      res.send(messages);
+      res.send(users);
     });
 
     app.get(
       "/users/:id/messages",
-      passport.authenticate("signup", { session: false }),
+      passport.authenticate("jwt", { session: false }),
       async (req, res) => {
-        const user = req.user;
-        const userMessage = await queryDatabase(
-          `SELECT * FROM messages WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUserId=${req.params.id} AND toUser=${user.id})`,
-          connection
-        );
-        res.send(userMessage);
+        if (req.params.id !== "general") {
+          const user = req.user;
+          const userMessage = await queryDatabase(
+            `SELECT * FROM messages WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUser=${req.params.id} AND toUser=${user.id})`,
+            connection
+          );
+          res.send(userMessage);
+        } else {
+          const userMessage = await queryDatabase(
+            `SELECT * FROM messages WHERE toUser IS NULL ORDER BY id DESC LIMIT 10`,
+            connection
+          );
+          res.send(userMessage);
+        }
       }
     );
 
@@ -201,6 +209,14 @@ async function startServer() {
         console.log(process.env.JWT_SECRET);
         const token = jwt.sign(req.user, process.env.JWT_SECRET);
         res.send({ token });
+      }
+    );
+
+    app.get(
+      "/validate",
+      passport.authenticate("jwt", { session: false }),
+      async (req, res) => {
+        res.send(req.user);
       }
     );
 

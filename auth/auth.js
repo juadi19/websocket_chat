@@ -76,19 +76,27 @@ passport.use(
   )
 );
 
-// passport.use(
-//   new JWTStrategy(
-//     {
-//       secretOrKey: process.env.JWT_SECRET,
-//       jwtFromRequest: ExtractJWT.fromAuthHeaderAsBearerToken(),
-//     },
-//     async (token, done) => {
-//       try {
-//         const user = await userCollection.findOne({ _id: token.user._id });
-//         return done(null, user);
-//       } catch (error) {
-//         return done(error);
-//       }
-//     }
-//   )
-// );
+passport.use(
+  new JWTStrategy(
+    {
+      secretOrKey: process.env.JWT_SECRET,
+      jwtFromRequest: ExtractJWT.fromAuthHeaderAsBearerToken(),
+    },
+    async (token, done) => {
+      try {
+        console.log(token);
+        const [user] = await queryDatabase(
+          `SELECT id, name, profilePictureUrl, color FROM users WHERE users.name="${token.name}"`,
+          connection
+        );
+        if (!user)
+          return done(null, null, {
+            message: "Usuario no encontrado",
+          });
+        return done(null, user);
+      } catch (error) {
+        return done(error);
+      }
+    }
+  )
+);
