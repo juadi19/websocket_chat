@@ -173,12 +173,20 @@ async function startServer() {
       "/users/:id/messages",
       passport.authenticate("jwt", { session: false }),
       async (req, res) => {
-        const user = req.user;
-        const userMessage = await queryDatabase(
-          `SELECT * FROM messages WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUser=${req.params.id} AND toUser=${user.id})`,
-          connection
-        );
-        res.send(userMessage);
+        if (req.params.id !== "general") {
+          const user = req.user;
+          const userMessage = await queryDatabase(
+            `SELECT * FROM messages WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUser=${req.params.id} AND toUser=${user.id})`,
+            connection
+          );
+          res.send(userMessage);
+        } else {
+          const userMessage = await queryDatabase(
+            `SELECT * FROM messages WHERE toUser=NULL LIMIT 10`,
+            connection
+          );
+          res.send(userMessage);
+        }
       }
     );
 
