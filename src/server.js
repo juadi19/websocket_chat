@@ -182,7 +182,7 @@ async function startServer() {
           res.send(userMessage);
         } else {
           const userMessage = await queryDatabase(
-            `SELECT * FROM messages WHERE toUser=NULL LIMIT 10`,
+            `SELECT * FROM messages WHERE toUser IS NULL ORDER BY id DESC LIMIT 10`,
             connection
           );
           res.send(userMessage);
