@@ -49,9 +49,7 @@ async function startServer() {
     await queryDatabase("USE chat;", connection);
 
     io.on("connection", (socket) => {
-      console.log(
-        "Un usuario se conectó",
-      );
+      console.log("Un usuario se conectó");
       const token = socket.handshake.auth?.token;
 
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
@@ -61,20 +59,13 @@ async function startServer() {
         } else {
           const user = decoded;
           socket.join(`userId#${user.id}`);
-          
+
           if (userSockets[user.id]) {
             userSockets[user.id].sockets.push(socket);
           } else {
             userSockets[user.id] = { sockets: [], user };
             userSockets[user.id].sockets.push(socket);
           }
-          
-          console.log(
-              `${user.name} tiene ${
-                userSockets[user.id].sockets.length
-              } socket`
-            );
-          console.log(Object.keys(userSockets).length);
         }
       });
       //socket.disconnect();
@@ -100,6 +91,7 @@ async function startServer() {
             }
           }
         });
+        console.log("desconectado");
         socket.disconnect();
       });
 
@@ -143,6 +135,7 @@ async function startServer() {
             connection
           );
         }
+        console.log("emit");
         if (toUser)
           io.to(`userId#${toUser.id}`)
             .to(`userId#${fromUser.id}`)
