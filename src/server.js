@@ -49,7 +49,6 @@ async function startServer() {
     await queryDatabase("USE chat;", connection);
 
     io.on("connection", (socket) => {
-      console.log("Un usuario se conectó");
       const token = socket.handshake.auth?.token;
 
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
@@ -71,7 +70,9 @@ async function startServer() {
           console.log(
             `${user.name} tiene ${userSockets[user.id].sockets.length} socket`
           );
-          console.log(Object.keys(userSockets).length);
+          console.log(
+            "Hay " + Object.keys(userSockets).length + "usuarios conectados"
+          );
         }
       });
       //socket.disconnect();
@@ -173,6 +174,16 @@ async function startServer() {
         users.online.push(userSocket.user);
       }
 
+      if (users.online.length > 0) {
+        const onlineUserNames = users.online
+          .map((u) => `"${u.name}"`)
+          .join(",");
+        users.offline = await queryDatabase(
+          `SELECT * FROM users WHERE users.name NOT IN (${onlineUserNames});`,
+          connection
+        );
+      }
+
       res.send(users);
     });
 
@@ -180,6 +191,7 @@ async function startServer() {
       "/users/:id/messages",
       passport.authenticate("jwt", { session: false }),
       async (req, res) => {
+        //Obtener los mensajes que han sido enviados anteriormente, haciendo que las relaciones sean objetos json
         if (req.params.id !== "general") {
           const user = req.user;
           const userMessage = await queryDatabase(
@@ -196,7 +208,6 @@ async function startServer() {
               LEFT JOIN users AS toUser ON toUser.id = messages.toUser
               WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUser=${req.params.id} AND toUser=${user.id})
               ORDER BY messages.id DESC
-              LIMIT 10
             ) AS subquery
             ORDER BY subquery.id ASC;`,
             connection
