@@ -64,6 +64,7 @@ async function startServer() {
             userSockets[user.id].sockets.push(socket);
           } else {
             userSockets[user.id] = { sockets: [], user };
+            io.emit("online-user", user);
             userSockets[user.id].sockets.push(socket);
           }
 
@@ -92,6 +93,7 @@ async function startServer() {
               );
               if (userSockets[user.id].sockets.length == 0) {
                 delete userSockets[user.id];
+                io.emit("offline-user", user);
               }
             }
           }
