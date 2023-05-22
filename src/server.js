@@ -49,9 +49,7 @@ async function startServer() {
     await queryDatabase("USE chat;", connection);
 
     io.on("connection", (socket) => {
-      console.log(
-        "Un usuario se conectó",
-      );
+      console.log("Un usuario se conectó");
       const token = socket.handshake.auth?.token;
 
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
@@ -61,19 +59,17 @@ async function startServer() {
         } else {
           const user = decoded;
           socket.join(`userId#${user.id}`);
-          
+
           if (userSockets[user.id]) {
             userSockets[user.id].sockets.push(socket);
           } else {
             userSockets[user.id] = { sockets: [], user };
             userSockets[user.id].sockets.push(socket);
           }
-          
+
           console.log(
-              `${user.name} tiene ${
-                userSockets[user.id].sockets.length
-              } socket`
-            );
+            `${user.name} tiene ${userSockets[user.id].sockets.length} socket`
+          );
           console.log(Object.keys(userSockets).length);
         }
       });
@@ -160,33 +156,26 @@ async function startServer() {
     );
 
     app.get("/users", async (req, res) => {
-      const users = await queryDatabase(
-        "SELECT id, name, profilePictureUrl, color FROM users",
-        connection
-      );
-      res.send(users);
-    });
+      const users = {
+        online: [],
+        offline: [],
+      };
 
-    app.get("/users", async (req, res) => {
-      const users = await queryDatabase("SELECT * FROM users", connection);
-      res.send(users);
-    });
+      for (const userSocket of Object.values(userSockets)) {
+        users.online.push(userSocket.user);
+        console.log(userSocket);
+      }
 
-    app.get("/messages", async (req, res) => {
-      const messages = await queryDatabase(
-        "SELECT * FROM messages",
-        connection
-      );
-      res.send(messages);
+      res.send(users);
     });
 
     app.get(
       "/users/:id/messages",
-      passport.authenticate("signup", { session: false }),
+      passport.authenticate("jwt", { session: false }),
       async (req, res) => {
         const user = req.user;
         const userMessage = await queryDatabase(
-          `SELECT * FROM messages WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUserId=${req.params.id} AND toUser=${user.id})`,
+          `SELECT * FROM messages WHERE (fromUser=${user.id} AND toUser=${req.params.id}) OR (fromUser=${req.params.id} AND toUser=${user.id})`,
           connection
         );
         res.send(userMessage);
