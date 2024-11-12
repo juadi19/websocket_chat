@@ -228,7 +228,7 @@ async function startServer() {
               LEFT JOIN users AS toUser ON toUser.id = messages.toUser
               WHERE messages.toUser IS NULL
               ORDER BY messages.id DESC
-              LIMIT 10
+              LIMIT 100
             ) AS subquery
             ORDER BY subquery.id ASC;`,
             connection

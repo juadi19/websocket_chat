@@ -16,9 +16,7 @@ passport.use(
       passReqToCallback: true,
     },
     async function (req, name, password, done) {
-      if (!req.body.profilePictureUrl)
-        req.body.profilePictureUrl =
-          "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541";
+      if (!req.body.profilePictureUrl) req.body.profilePictureUrl = "/user.png";
       if (!req.body.color) return done("Color requerido");
 
       try {
